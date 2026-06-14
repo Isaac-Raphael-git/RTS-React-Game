@@ -44,35 +44,42 @@ export default function App() {
 
       // Construction logic
       setResources(currentResources => {
-  let availableMaterial = currentResources.material;
-  let nextTiles = [...tiles];
-  
-  // ADDED: Filter and Sort queue by time
-  const pendingQueue = nextTiles
-    .map((tile, index) => ({ ...tile, index }))
-    .filter(t => t && t.status !== 'post-building' && BUILDINGS[t.type]) // SAFETY CHECK
-    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); // QUEUE LOGIC
+        let availableMaterial = currentResources.material;
+        let nextTiles = [...tiles];
+        let modified = false;
+        
+        // ADDED: Filter and Sort queue by time
+        const pendingQueue = nextTiles
+          .map((tile, index) => ({ ...tile, index }))
+          .filter(t => t && t.status !== 'post-building' && BUILDINGS[t.type]) // SAFETY CHECK
+          .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0)); // QUEUE LOGIC
 
-  pendingQueue.forEach(target => {
-    const buildingData = BUILDINGS[target.type];
-    if (!buildingData) return; // SAFETY CHECK
-    
-    const cost = buildingData.cost;
-    const stepCost = target.progress === 0 ? cost : 10;
+        pendingQueue.forEach(target => {
+          const buildingData = BUILDINGS[target.type];
+          if (!buildingData) return; // SAFETY CHECK
+          
+          const stepCost = buildingData.cost / 5;
 
-    if (availableMaterial >= stepCost) {
-      availableMaterial -= stepCost;
-      const newProgress = target.progress + 20;
-      
-      nextTiles[target.index] = newProgress >= 100 
-        ? { ...target, status: 'post-building', progress: 100 }
-        : { ...target, status: 'peri-building', progress: newProgress };
-    }
-  });
+          if (target.status === 'pre-building') {
+            if (availableMaterial >= buildingData.cost) {
+              availableMaterial -= stepCost;
+              nextTiles[target.index] = { ...target, status: 'peri-building', progress: 20 };
+              modified = true;
+            }
+          } else if (target.status === 'peri-building') {
+            availableMaterial -= stepCost;
+            const newProgress = target.progress + 20;
+            
+            nextTiles[target.index] = newProgress >= 100 
+              ? { ...target, status: 'post-building', progress: 100 }
+              : { ...target, status: 'peri-building', progress: newProgress };
+              modified = true;
+          }
+        });
 
-  setTiles(nextTiles);
-  return { ...currentResources, material: availableMaterial };
-});
+        setTiles(nextTiles);
+        return { ...currentResources, material: availableMaterial };
+      });
     }, 1000);
     return () => clearInterval(timer);
   }, [tiles]);
